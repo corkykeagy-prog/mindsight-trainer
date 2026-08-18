@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MindSight Training Tool</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        #trainer-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #000000;
+            color: #ffffff;
+            transition: background-color 0.5s ease;
+            padding: 2vh 2vw;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Overlay UI that fades out during active training */
+        .fade-ui {
+            transition: opacity 0.4s ease;
+        }
+
+        .hidden-ui {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #status-text {
+            font-size: 3vh;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        #display-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-grow: 1;
+            width: 100%;
+        }
+
+        #shape-icon {
+            font-size: 60vh;
+            line-height: 1;
+            user-select: none;
+            display: inline-block;
+        }
+
+        /* Dynamic shake animation handled via custom properties */
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            20% { transform: translate(calc(var(--shake-amp) * -1px), calc(var(--shake-amp) * 0.7px)); }
+            40% { transform: translate(calc(var(--shake-amp) * 1px), calc(var(--shake-amp) * -1px)); }
+            60% { transform: translate(calc(var(--shake-amp) * -0.7px), calc(var(--shake-amp) * -0.7px)); }
+            80% { transform: translate(calc(var(--shake-amp) * 0.8px), calc(var(--shake-amp) * 1px)); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .shake-anim {
+            animation: shake calc(1s / var(--shake-speed)) ease-in-out infinite;
+        }
+
+        #bottom-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            gap: 1vh;
+        }
+
+        #combo-text {
+            font-size: 3.5vh;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        #controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 95vw;
+        }
+
+        .btn {
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            font-size: 1.6vh;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        #start-btn { background-color: #2563eb; }
+        #pause-btn { background-color: #d97706; display: none; }
+        #stop-btn { background-color: #dc2626; }
+        .nav-btn { background-color: #4b5563; }
+        #fullscreen-btn { background-color: #059669; }
+        
+        .setting-group {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 1.5vh;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .setting-group input[type="range"] {
+            cursor: pointer;
+            width: 70px;
+        }
+
+        .setting-group label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="trainer-container" style="--shake-amp: 100; --shake-speed: 1;">
+        
+        <div id="status-text" class="fade-ui">Ready to Start</div>
+        
+        <div id="display-box">
+            <span id="shape-icon">●</span>
+        </div>
+        
+        <div id="bottom-area" class="fade-ui">
+            <div id="combo-text">Press Start Training</div>
+            
+            <div id="controls">
+                <button id="start-btn" class="btn" onclick="startTraining()">Start Training</button>
+                <button id="pause-btn" class="btn" onclick="togglePause()">Pause</button>
+                
+                <button class="btn nav-btn" onclick="prevSlide()">&#9664; Back</button>
+                <button class="btn nav-btn" onclick="nextSlide()">Next &#9654;</button>
+
+                <button id="stop-btn" class="btn" onclick="stopTraining()" disabled>Stop</button>
+                <button id="fullscreen-btn" class="btn" onclick="toggleFullscreen()">Fullscreen</button>
+                
+                <div class="setting-group">
+                    <label for="interval-slider">
+                        Interval: <span id="interval-val">5</span>s
+                    </label>
+                    <input type="range" id="interval-slider" min="1" max="20" value="5" oninput="updateInterval(this.value)">
+                </div>
+
+                <div class="setting-group">
+                    <label for="shake-dur-slider">
+                        Shake Time: <span id="shake-dur-val">1.0</span>s
+                    </label>
+                    <input type="range" id="shake-dur-slider" min="0.1" max="5" step="0.1" value="1.0" oninput="updateShakeDuration(this.value)">
+                </div>
+
+                <div class="setting-group">
+                    <label for="amp-slider">
+                        Amplitude: <span id="amp-val">100</span>px
+                    </label>
+                    <input type="range" id="amp-slider" min="0" max="200" value="100" oninput="updateAmplitude(this.value)">
+                </div>
+
+                <div class="setting-group">
+                    <label for="speed-slider">
+                        Speed: <span id="speed-val">1.0</span>x
+                    </label>
+                    <input type="range" id="speed-slider" min="0.1" max="5.0" step="0.1" value="1.0" oninput="updateSpeed(this.value)">
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="mute-check"> Mute Speech
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// Color Palette definitions
+const colorMap = {
+    'Red':    { hex: '#ef4444', textHex: '#ffffff' },
+    'Blue':   { hex: '#3b82f6', textHex: '#ffffff' },
+    'Green':  { hex: '#22c55e', textHex: '#ffffff' },
+    'Yellow': { hex: '#facc15', textHex: '#000000' },
+    'Pink':   { hex: '#ec4899', textHex: '#ffffff' },
+    'Orange': { hex: '#f97316', textHex: '#ffffff' },
+    'Black':  { hex: '#000000', textHex: '#ffffff' },
+    'Purple': { hex: '#a855f7', textHex: '#ffffff' },
+    'White':  { hex: '#ffffff', textHex: '#000000' }
+};
+
+const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Pink', 'Orange', 'Black', 'Purple', 'White'];
+const shapes = ['Circle', 'Square', 'Triangle', 'Star', 'Diamond', 'Plus'];
+const shapeTypes = ['Open', 'Closed'];
+
+let activeCombinations = [];
+let currentIndex = 0;
+let isRunning = false;
+let isPaused = false;
+let timeoutId = null;
+let shakeTimeoutId = null;
+let mouseIdleTimer = null;
+let intervalSeconds = 5;
+let shakeDurationSeconds = 1.0;
+
+// Generate full permutations array and shuffle it so it never repeats until the full deck cycles through
+function generateShuffledDeck() {
+    let deck = [];
+    for (let bg of colors) {
+        for (let shape of shapes) {
+            for (let type of shapeTypes) {
+                for (let sColor of colors) {
+                    // Prevent background and shape color from being identical for visibility
+                    if (bg !== sColor) {
+                        deck.push({
+                            bg: bg,
+                            shape: shape,
+                            shapeType: type,
+                            shapeColor: sColor,
+                            bgColorHex: colorMap[bg].hex,
+                            textColor: colorMap[bg].textHex,
+                            shapeColorHex: colorMap[sColor].hex
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Fisher-Yates shuffle
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+}
+
+function updateInterval(val) {
+    intervalSeconds = parseInt(val);
+    document.getElementById('interval-val').innerText = intervalSeconds;
+    
+    const shakeSlider = document.getElementById('shake-dur-slider');
+    shakeSlider.max = intervalSeconds;
+    if (shakeDurationSeconds > intervalSeconds) {
+        shakeDurationSeconds = intervalSeconds;
+        shakeSlider.value = shakeDurationSeconds;
+        document.getElementById('shake-dur-val').innerText = shakeDurationSeconds.toFixed(1);
+    }
+}
+
+function updateShakeDuration(val) {
+    shakeDurationSeconds = parseFloat(val);
+    if (shakeDurationSeconds > intervalSeconds) {
+        shakeDurationSeconds = intervalSeconds;
+        document.getElementById('shake-dur-slider').value = shakeDurationSeconds;
+    }
+    document.getElementById('shake-dur-val').innerText = shakeDurationSeconds.toFixed(1);
+}
+
+function updateAmplitude(val) {
+    document.getElementById('trainer-container').style.setProperty('--shake-amp', val);
+    document.getElementById('amp-val').innerText = val;
+}
+
+function updateSpeed(val) {
+    document.getElementById('trainer-container').style.setProperty('--shake-speed', val);
+    document.getElementById('speed-val').innerText = parseFloat(val).toFixed(1);
+}
+
+function getShapeSymbol(shape, shapeType) {
+    if (shapeType === 'Open') {
+        switch(shape) {
+            case 'Circle': return '○';
+            case 'Square': return '□';
+            case 'Triangle': return '△';
+            case 'Star': return '☆';
+            case 'Diamond': return '◇';
+            case 'Plus': return '┼';
+            default: return '○';
+        }
+    } else {
+        switch(shape) {
+            case 'Circle': return '●';
+            case 'Square': return '■';
+            case 'Triangle': return '▲';
+            case 'Star': return '★';
+            case 'Diamond': return '◆';
+            case 'Plus': return '✚';
+            default: return '●';
+        }
+    }
+}
+
+function displayCurrentSlide() {
+    if (activeCombinations.length === 0 || currentIndex >= activeCombinations.length) {
+        activeCombinations = generateShuffledDeck();
+        currentIndex = 0;
+    }
+    const current = activeCombinations[currentIndex];
+    const container = document.getElementById('trainer-container');
+    const shapeIcon = document.getElementById('shape-icon');
+    const comboText = document.getElementById('combo-text');
+
+    container.style.backgroundColor = current.bgColorHex;
+    container.style.color = current.textColor;
+
+    shapeIcon.innerText = getShapeSymbol(current.shape, current.shapeType);
+    shapeIcon.style.color = current.shapeColorHex;
+    comboText.innerText = `${current.bg} background, ${current.shapeType} ${current.shapeColor} ${current.shape}`;
+
+    clearTimeout(shakeTimeoutId);
+    shapeIcon.classList.remove('shake-anim');
+
+    const effectiveShakeDuration = Math.min(shakeDurationSeconds, intervalSeconds);
+    if (effectiveShakeDuration > 0) {
+        shapeIcon.classList.add('shake-anim');
+        shakeTimeoutId = setTimeout(() => {
+            shapeIcon.classList.remove('shake-anim');
+        }, effectiveShakeDuration * 1000);
+    }
+}
+
+function startTraining() {
+    if (isRunning && !isPaused) return;
+    
+    if (isPaused) {
+        isPaused = false;
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('pause-btn').style.display = 'inline-block';
+        document.getElementById('pause-btn').innerText = 'Pause';
+        runStep();
+        return;
+    }
+
+    activeCombinations = generateShuffledDeck();
+    isRunning = true;
+    isPaused = false;
+    currentIndex = 0;
+    
+    document.getElementById('start-btn').style.display = 'none';
+    document.getElementById('pause-btn').style.display = 'inline-block';
+    document.getElementById('pause-btn').innerText = 'Pause';
+    document.getElementById('stop-btn').disabled = false;
+    
+    runStep();
+}
+
+function togglePause() {
+    const pauseBtn = document.getElementById('pause-btn');
+    if (!isPaused) {
+        isPaused = true;
+        clearTimeout(timeoutId);
+        clearTimeout(shakeTimeoutId);
+        window.speechSynthesis.cancel();
+        pauseBtn.innerText = 'Resume';
+        document.getElementById('status-text').innerText = 'Paused';
+        showUI();
+    } else {
+        isPaused = false;
+        pauseBtn.innerText = 'Pause';
+        runStep();
+    }
+}
+
+function stopTraining() {
+    isRunning = false;
+    isPaused = false;
+    clearTimeout(timeoutId);
+    clearTimeout(shakeTimeoutId);
+    window.speechSynthesis.cancel();
+    
+    const shapeIcon = document.getElementById('shape-icon');
+    shapeIcon.classList.remove('shake-anim');
+
+    document.getElementById('start-btn').style.display = 'inline-block';
+    document.getElementById('pause-btn').style.display = 'none';
+    document.getElementById('stop-btn').disabled = true;
+    
+    document.getElementById('status-text').innerText = 'Ready to Start';
+    shapeIcon.innerText = '●';
+    shapeIcon.style.color = '#fff';
+    document.getElementById('combo-text').innerText = 'Press Start Training';
+    document.getElementById('trainer-container').style.backgroundColor = '#000';
+    document.getElementById('trainer-container').style.color = '#fff';
+    showUI();
+}
+
+function nextSlide() {
+    if (!isRunning) {
+        activeCombinations = generateShuffledDeck();
+        currentIndex = 0;
+        document.getElementById('stop-btn').disabled = false;
+    }
+    
+    clearTimeout(timeoutId);
+    clearTimeout(shakeTimeoutId);
+    window.speechSynthesis.cancel();
+    isPaused = true;
+    
+    const pauseBtn = document.getElementById('pause-btn');
+    document.getElementById('start-btn').style.display = 'none';
+    pauseBtn.style.display = 'inline-block';
+    pauseBtn.innerText = 'Resume';
+    document.getElementById('status-text').innerText = 'Paused';
+    showUI();
+
+    currentIndex = (currentIndex + 1) % activeCombinations.length;
+    displayCurrentSlide();
+}
+
+function prevSlide() {
+    if (!isRunning) {
+        activeCombinations = generateShuffledDeck();
+        currentIndex = 0;
+        document.getElementById('stop-btn').disabled = false;
+    }
+    
+    clearTimeout(timeoutId);
+    clearTimeout(shakeTimeoutId);
+    window.speechSynthesis.cancel();
+    isPaused = true;
+    
+    const pauseBtn = document.getElementById('pause-btn');
+    document.getElementById('start-btn').style.display = 'none';
+    pauseBtn.style.display = 'inline-block';
+    pauseBtn.innerText = 'Resume';
+    document.getElementById('status-text').innerText = 'Paused';
+    showUI();
+
+    currentIndex = (currentIndex - 1 + activeCombinations.length) % activeCombinations.length;
+    displayCurrentSlide();
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            alert(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
+        });
+        document.getElementById('fullscreen-btn').innerText = 'Exit Fullscreen';
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+        document.getElementById('fullscreen-btn').innerText = 'Fullscreen';
+    }
+}
+
+document.addEventListener('fullscreenchange', () => {
+    const btn = document.getElementById('fullscreen-btn');
+    if (!document.fullscreenElement) {
+        btn.innerText = 'Fullscreen';
+    } else {
+        btn.innerText = 'Exit Fullscreen';
+    }
+});
+
+function runStep() {
+    if (!isRunning || isPaused) return;
+
+    const current = activeCombinations[currentIndex];
+    const statusText = document.getElementById('status-text');
+    const isMuted = document.getElementById('mute-check').checked;
+
+    displayCurrentSlide();
+
+    statusText.innerText = `Visualizing... (${intervalSeconds}s)`;
+
+    if (isRunning && !isPaused) {
+        hideUI();
+    }
+
+    timeoutId = setTimeout(() => {
+        if (!isRunning || isPaused) return;
+
+        const description = `${current.bg} background, ${current.shapeType} ${current.shapeColor} ${current.shape}`;
+
+        if (isMuted) {
+            currentIndex = (currentIndex + 1) % activeCombinations.length;
+            timeoutId = setTimeout(runStep, 1500);
+        } else {
+            statusText.innerText = 'Announcing...';
+            const utterance = new SpeechSynthesisUtterance(description);
+            utterance.rate = 0.9;
+            utterance.onend = () => {
+                if (!isRunning || isPaused) return;
+                currentIndex = (currentIndex + 1) % activeCombinations.length;
+                timeoutId = setTimeout(runStep, 1500);
+            };
+            window.speechSynthesis.speak(utterance);
+        }
+
+    }, intervalSeconds * 1000);
+}
+
+function hideUI() {
+    if (isPaused) return;
+    document.querySelectorAll('.fade-ui').forEach(el => el.classList.add('hidden-ui'));
+}
+
+function showUI() {
+    document.querySelectorAll('.fade-ui').forEach(el => el.classList.remove('hidden-ui'));
+}
+
+document.addEventListener('mousemove', () => {
+    if (!isRunning || isPaused) return;
+    showUI();
+    
+    clearTimeout(mouseIdleTimer);
+    mouseIdleTimer = setTimeout(() => {
+        if (isRunning && !isPaused) {
+            hideUI();
+        }
+    }, 2000);
+});
+</script>
+
+</body>
+</html>
