@@ -2,13 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MindSight Training </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MindSight Training Tool</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body, html {
             margin: 0;
             padding: 0;
             width: 100vw;
             height: 100vh;
+            height: 100dvh;
             overflow: hidden;
             font-family: Arial, sans-serif;
             background-color: #000000;
@@ -18,6 +24,7 @@
         #trainer-container {
             width: 100vw;
             height: 100vh;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -25,12 +32,10 @@
             background-color: #000000;
             color: #ffffff;
             transition: background-color 0.5s ease;
-            padding: 2vh 2vw;
-            box-sizing: border-box;
+            padding: env(safe-area-inset-top, 10px) env(safe-area-inset-right, 15px) env(safe-area-inset-bottom, 10px) env(safe-area-inset-left, 15px);
             position: relative;
         }
 
-        /* Overlay UI that fades out during active training */
         .fade-ui {
             transition: opacity 0.4s ease;
         }
@@ -41,10 +46,14 @@
         }
 
         #status-text {
-            font-size: 3vh;
+            font-size: min(2.5vh, 16px);
             font-weight: 800;
             letter-spacing: 2px;
             text-transform: uppercase;
+            text-align: center;
+            margin-top: 5px;
+            flex-shrink: 0;
+            z-index: 20;
         }
 
         #display-box {
@@ -53,16 +62,28 @@
             align-items: center;
             flex-grow: 1;
             width: 100%;
+            position: relative;
+            overflow: visible;
         }
 
-        #shape-icon {
-            font-size: 60vh;
+        #shape-svg {
+            width: calc(min(40vw, 40vh) * var(--scale-factor, 1.4));
+            height: calc(min(40vw, 40vh) * var(--scale-factor, 1.4));
+            transition: fill 0.3s ease, stroke 0.3s ease, width 0.1s ease, height 0.1s ease;
+        }
+
+        #letter-display {
+            font-size: calc(min(22vw, 22vh) * var(--scale-factor, 1.4));
+            font-weight: bold;
             line-height: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            transition: color 0.3s ease, font-size 0.1s ease;
             user-select: none;
-            display: inline-block;
         }
 
-        /* Dynamic shake animation handled via custom properties */
         @keyframes shake {
             0% { transform: translate(0, 0); }
             20% { transform: translate(calc(var(--shake-amp) * -1px), calc(var(--shake-amp) * 0.7px)); }
@@ -81,72 +102,412 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            gap: 1vh;
+            gap: 6px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
+            z-index: 20;
         }
 
         #combo-text {
-            font-size: 3.5vh;
+            font-size: min(2.5vh, 15px);
             font-weight: bold;
             letter-spacing: 1px;
+            text-align: center;
+            padding: 0 10px;
         }
 
         #controls {
             display: flex;
-            gap: 10px;
+            gap: 5px;
             align-items: center;
             flex-wrap: wrap;
             justify-content: center;
-            max-width: 95vw;
+            max-width: 100%;
         }
 
         .btn {
             color: #fff;
             border: none;
-            padding: 8px 16px;
-            font-size: 1.6vh;
-            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: min(1.6vh, 12px);
+            border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            min-height: 32px;
         }
 
-        #start-btn { background-color: #2563eb; }
-        #pause-btn { background-color: #d97706; display: none; }
-        #stop-btn { background-color: #dc2626; }
-        .nav-btn { background-color: #4b5563; }
-        #fullscreen-btn { background-color: #059669; }
+        #start-btn { background-color: #10b981; } 
+        #pause-btn { background-color: #f59e0b; display: none; } 
+        #stop-btn { background-color: #ef4444; } 
+        .nav-btn { background-color: #6366f1; } 
+        #fullscreen-btn { background-color: #8b5cf6; } 
         
         .setting-group {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-size: 1.5vh;
+            background: rgba(100, 100, 100, 0.25);
+            padding: 3px 6px;
+            border-radius: 6px;
+            font-size: min(1.4vh, 11px);
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
+            height: 32px;
         }
 
         .setting-group input[type="range"] {
             cursor: pointer;
-            width: 70px;
+            width: 50px;
         }
 
         .setting-group label {
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 3px;
         }
-    </style>
+
+        .mode-btn-group {
+            display: flex;
+            background: rgba(100, 100, 100, 0.25);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(150, 150, 150, 0.3);
+        }
+
+        .mode-btn {
+            background: transparent;
+            border: none;
+            color: inherit;
+            padding: 3px 6px;
+            font-size: min(1.4vh, 11px);
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .mode-btn.active {
+            background: #10b981;
+            color: #ffffff !important;
+        }
+    
+        /* ===== v6 APP EXPERIENCE ===== */
+        :root {
+            --panel: rgba(15, 15, 25, 0.88);
+            --panel-border: rgba(255,255,255,0.10);
+            --accent: #8b5cf6;
+            --accent2: #22c55e;
+            --text-soft: rgba(255,255,255,0.72);
+        }
+
+        #app-header {
+            position: absolute;
+            top: max(10px, env(safe-area-inset-top));
+            left: 12px;
+            right: 12px;
+            z-index: 40;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .app-title {
+            font-weight: 900;
+            letter-spacing: 0.4px;
+            font-size: 14px;
+            background: rgba(0,0,0,0.28);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 7px 10px;
+            border-radius: 999px;
+        }
+
+        .header-action {
+            pointer-events: auto;
+            border: 1px solid var(--panel-border);
+            background: rgba(0,0,0,0.32);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        #quick-presets {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: max(120px, calc(env(safe-area-inset-bottom) + 120px));
+            z-index: 35;
+            display: flex;
+            gap: 7px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: min(92vw, 560px);
+            transition: opacity .3s ease;
+        }
+
+        .preset {
+            border: 1px solid var(--panel-border);
+            background: rgba(15,15,25,.72);
+            color: white;
+            border-radius: 999px;
+            padding: 8px 11px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .preset.active {
+            background: var(--accent);
+        }
+
+        #practice-dock {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: max(10px, env(safe-area-inset-bottom));
+            z-index: 50;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 20px;
+            padding: 10px;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 12px 45px rgba(0,0,0,0.35);
+        }
+
+        #primary-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        .primary-btn {
+            min-height: 48px;
+            border-radius: 14px;
+            border: none;
+            color: white;
+            font-size: 14px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        #big-start { background: #16a34a; }
+        #big-pause { background: #d97706; }
+        #big-next { background: #4f46e5; }
+
+        #advanced-toggle {
+            margin-top: 8px;
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: var(--text-soft);
+            font-size: 12px;
+            font-weight: 800;
+            padding: 6px;
+            cursor: pointer;
+        }
+
+        #advanced-panel {
+            display: none;
+            margin-top: 6px;
+            border-top: 1px solid var(--panel-border);
+            padding-top: 9px;
+        }
+
+        #advanced-panel.open {
+            display: block;
+        }
+
+        .advanced-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 8px;
+        }
+
+        .adv-card {
+            background: rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 8px;
+        }
+
+        .adv-card label {
+            display: block;
+            font-size: 11px;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .adv-card input[type="range"] {
+            width: 100%;
+        }
+
+        .mini-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 8px;
+        }
+
+        .mini-btn {
+            border: 1px solid var(--panel-border);
+            background: rgba(255,255,255,0.07);
+            color: white;
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        #onboarding {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(0,0,0,.74);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+        }
+
+        #onboarding.show { display: flex; }
+
+        .onboarding-card {
+            width: min(94vw, 520px);
+            background: #11111b;
+            border: 1px solid var(--panel-border);
+            border-radius: 22px;
+            padding: 22px;
+            box-shadow: 0 20px 70px rgba(0,0,0,.5);
+        }
+
+        .onboarding-card h2 {
+            margin: 0 0 8px;
+            font-size: 24px;
+        }
+
+        .onboarding-card p {
+            color: var(--text-soft);
+            line-height: 1.45;
+            margin: 8px 0;
+        }
+
+        .start-choice {
+            width: 100%;
+            margin-top: 9px;
+            min-height: 48px;
+            border: 0;
+            border-radius: 14px;
+            color: white;
+            font-size: 14px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .choice-beginner { background: #16a34a; }
+        .choice-colors { background: #2563eb; }
+        .choice-details { background: #7c3aed; }
+
+        #training-hint {
+            position: absolute;
+            top: 58px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 25;
+            background: rgba(0,0,0,.28);
+            padding: 7px 11px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .4px;
+            text-align: center;
+            max-width: 88vw;
+        }
+
+        /* Hide the original dense control strip; v6 uses the dock. */
+        #bottom-area { display: none !important; }
+
+        @media (min-width: 700px) {
+            .advanced-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+            #practice-dock { width: 660px; left: 50%; right: auto; transform: translateX(-50%); }
+        }
+
+</style>
 </head>
 <body>
 
-    <div id="trainer-container" style="--shake-amp: 100; --shake-speed: 1;">
+    <div id="trainer-container" style="--shake-amp: 100; --shake-speed: 0.2; --scale-factor: 1.4;">
+        <div id="app-header">
+            <div class="app-title">MindSight Trainer <span style="opacity:.55">v6</span></div>
+            <button class="header-action" onclick="openOnboarding()" aria-label="Help">?</button>
+        </div>
+
+        <div id="training-hint">Choose a practice level, then press Start</div>
+
+        <div id="quick-presets" class="fade-ui">
+            <button class="preset active" id="preset-beginner" onclick="applyPreset('beginner')">Beginner</button>
+            <button class="preset" id="preset-color" onclick="applyPreset('color')">Color</button>
+            <button class="preset" id="preset-shape" onclick="applyPreset('shape')">Shapes</button>
+            <button class="preset" id="preset-letter" onclick="applyPreset('letter')">Letters</button>
+        </div>
+
+        <div id="practice-dock" class="fade-ui">
+            <div id="primary-actions">
+                <button id="big-start" class="primary-btn" onclick="startTraining()">Start</button>
+                <button id="big-pause" class="primary-btn" onclick="togglePause()">Pause</button>
+                <button id="big-next" class="primary-btn" onclick="nextSlide()">Next</button>
+            </div>
+            <button id="advanced-toggle" onclick="toggleAdvanced()">Practice settings â¾</button>
+            <div id="advanced-panel">
+                <div class="advanced-grid">
+                    <div class="adv-card">
+                        <label>Size <span id="v6-size-val">140</span>%</label>
+                        <input type="range" min="20" max="350" step="5" value="140"
+                               oninput="updateSize(this.value); document.getElementById('v6-size-val').innerText=this.value;">
+                    </div>
+                    <div class="adv-card">
+                        <label>Time <span id="v6-int-val">5</span>s</label>
+                        <input type="range" min="1" max="60" value="5"
+                               oninput="updateInterval(this.value); document.getElementById('v6-int-val').innerText=this.value;">
+                    </div>
+                    <div class="adv-card">
+                        <label>Movement <span id="v6-amp-val">100</span></label>
+                        <input type="range" min="0" max="200" value="100"
+                               oninput="updateAmplitude(this.value); document.getElementById('v6-amp-val').innerText=this.value;">
+                    </div>
+                    <div class="adv-card">
+                        <label>Speed <span id="v6-speed-val">0.20</span></label>
+                        <input type="range" min="0.01" max="2.0" step="0.01" value="0.2"
+                               oninput="updateSpeed(this.value); document.getElementById('v6-speed-val').innerText=parseFloat(this.value).toFixed(2);">
+                    </div>
+                </div>
+                <div class="mini-row">
+                    <button class="mini-btn" onclick="setColorMode('rgb')">Full color</button>
+                    <button class="mini-btn" onclick="setColorMode('bkw')">White on black</button>
+                    <button class="mini-btn" onclick="setColorMode('wkb')">Black on white</button>
+                    <button class="mini-btn" onclick="setElementType('shapes')">Shapes</button>
+                    <button class="mini-btn" onclick="setElementType('letters')">Letters</button>
+                    <button class="mini-btn" onclick="toggleMuteV6()">Audio on/off</button>
+                    <button class="mini-btn" onclick="toggleFullscreen()">Fullscreen</button>
+                    <button class="mini-btn" onclick="stopTraining()">Stop</button>
+                </div>
+            </div>
+        </div>
+
         
         <div id="status-text" class="fade-ui">Ready to Start</div>
         
         <div id="display-box">
-            <span id="shape-icon">●</span>
+            <svg id="shape-svg" viewBox="0 0 100 100" style="overflow: visible;">
+                <path id="shape-path" d="" />
+            </svg>
+            <div id="letter-display" style="display: none;">A</div>
         </div>
         
         <div id="bottom-area" class="fade-ui">
@@ -161,38 +522,60 @@
 
                 <button id="stop-btn" class="btn" onclick="stopTraining()" disabled>Stop</button>
                 <button id="fullscreen-btn" class="btn" onclick="toggleFullscreen()">Fullscreen</button>
+
+                <div class="setting-group" style="padding: 2px; gap: 2px;">
+                    <div class="mode-btn-group">
+                        <button id="elem-shapes" class="mode-btn active" onclick="setElementType('shapes')">Shapes</button>
+                        <button id="elem-letters" class="mode-btn" onclick="setElementType('letters')">Letters</button>
+                    </div>
+                </div>
+
+                <div class="setting-group" style="padding: 2px; gap: 2px;">
+                    <div class="mode-btn-group">
+                        <button id="mode-rgb" class="mode-btn active" onclick="setColorMode('rgb')">RGB</button>
+                        <button id="mode-bkw" class="mode-btn" onclick="setColorMode('bkw')">B/W</button>
+                        <button id="mode-wkb" class="mode-btn" onclick="setColorMode('wkb')">W/B</button>
+                    </div>
+                </div>
                 
                 <div class="setting-group">
-                    <label for="interval-slider">
-                        Interval: <span id="interval-val">5</span>s
+                    <label for="size-slider">
+                        Size: <span id="size-val">140</span>%
                     </label>
-                    <input type="range" id="interval-slider" min="1" max="20" value="5" oninput="updateInterval(this.value)">
+                    <input type="range" id="size-slider" min="20" max="350" step="5" value="140" oninput="updateSize(this.value)">
+                </div>
+
+                <div class="setting-group">
+                    <label for="interval-slider">
+                        Int: <span id="interval-val">5</span>s
+                    </label>
+                    <input type="range" id="interval-slider" min="1" max="60" value="5" oninput="updateInterval(this.value)">
                 </div>
 
                 <div class="setting-group">
                     <label for="shake-dur-slider">
-                        Shake Time: <span id="shake-dur-val">1.0</span>s
+                        Shake: <span id="shake-dur-val">1.0</span>s
                     </label>
                     <input type="range" id="shake-dur-slider" min="0.1" max="5" step="0.1" value="1.0" oninput="updateShakeDuration(this.value)">
                 </div>
 
                 <div class="setting-group">
                     <label for="amp-slider">
-                        Amplitude: <span id="amp-val">100</span>px
+                        Amp: <span id="amp-val">100</span>
                     </label>
                     <input type="range" id="amp-slider" min="0" max="200" value="100" oninput="updateAmplitude(this.value)">
                 </div>
 
                 <div class="setting-group">
                     <label for="speed-slider">
-                        Speed: <span id="speed-val">1.0</span>x
+                        Spd: <span id="speed-val">0.2</span>
                     </label>
-                    <input type="range" id="speed-slider" min="0.1" max="5.0" step="0.1" value="1.0" oninput="updateSpeed(this.value)">
+                    <input type="range" id="speed-slider" min="0.01" max="2.0" step="0.01" value="0.2" oninput="updateSpeed(this.value)">
                 </div>
 
                 <div class="setting-group">
                     <label>
-                        <input type="checkbox" id="mute-check"> Mute Speech
+                        <input type="checkbox" id="mute-check"> Mute
                     </label>
                 </div>
             </div>
@@ -200,7 +583,46 @@
     </div>
 
 <script>
-// Color Palette definitions
+let wakeLock = null;
+let cachedVoice = null;
+
+function loadVoices() {
+    if (!('speechSynthesis' in window)) return;
+    const voices = window.speechSynthesis.getVoices();
+    cachedVoice = voices.find(v => v.lang.includes('en-US') || v.lang.includes('en_US')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+}
+
+if ('speechSynthesis' in window) {
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+}
+
+async function requestWakeLock() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+        }
+    } catch (err) {
+        console.error(`${err.name}, ${err.message}`);
+    }
+}
+
+function releaseWakeLock() {
+    if (wakeLock !== null) {
+        wakeLock.release().then(() => {
+            wakeLock = null;
+        });
+    }
+}
+
+document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible' && isRunning && !isPaused) {
+        await requestWakeLock();
+    }
+});
+
 const colorMap = {
     'Red':    { hex: '#ef4444', textHex: '#ffffff' },
     'Blue':   { hex: '#3b82f6', textHex: '#ffffff' },
@@ -216,7 +638,10 @@ const colorMap = {
 const colors = ['Red', 'Blue', 'Green', 'Yellow', 'Pink', 'Orange', 'Black', 'Purple', 'White'];
 const shapes = ['Circle', 'Square', 'Triangle', 'Star', 'Diamond', 'Plus'];
 const shapeTypes = ['Open', 'Closed'];
+const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
+let elementType = 'shapes';
+let colorMode = 'rgb';
 let activeCombinations = [];
 let currentIndex = 0;
 let isRunning = false;
@@ -227,36 +652,111 @@ let mouseIdleTimer = null;
 let intervalSeconds = 5;
 let shakeDurationSeconds = 1.0;
 
-// Generate full permutations array and shuffle it so it never repeats until the full deck cycles through
+function setElementType(type) {
+    elementType = type;
+    document.getElementById('elem-shapes').classList.toggle('active', type === 'shapes');
+    document.getElementById('elem-letters').classList.toggle('active', type === 'letters');
+
+    activeCombinations = generateShuffledDeck();
+    currentIndex = 0;
+    displayCurrentSlide();
+}
+
+function setColorMode(mode) {
+    colorMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        if (['mode-rgb', 'mode-bkw', 'mode-wkb'].includes(btn.id)) {
+            btn.classList.remove('active');
+        }
+    });
+    if (mode === 'rgb') document.getElementById('mode-rgb').classList.add('active');
+    if (mode === 'bkw') document.getElementById('mode-bkw').classList.add('active');
+    if (mode === 'wkb') document.getElementById('mode-wkb').classList.add('active');
+
+    activeCombinations = generateShuffledDeck();
+    currentIndex = 0;
+    displayCurrentSlide();
+}
+
 function generateShuffledDeck() {
     let deck = [];
-    for (let bg of colors) {
-        for (let shape of shapes) {
-            for (let type of shapeTypes) {
-                for (let sColor of colors) {
-                    // Prevent background and shape color from being identical for visibility
-                    if (bg !== sColor) {
-                        deck.push({
-                            bg: bg,
-                            shape: shape,
-                            shapeType: type,
-                            shapeColor: sColor,
-                            bgColorHex: colorMap[bg].hex,
-                            textColor: colorMap[bg].textHex,
-                            shapeColorHex: colorMap[sColor].hex
-                        });
+    if (elementType === 'shapes') {
+        if (colorMode === 'rgb') {
+            for (let bg of colors) {
+                for (let shape of shapes) {
+                    for (let type of shapeTypes) {
+                        for (let sColor of colors) {
+                            if (bg !== sColor) {
+                                deck.push({
+                                    mode: 'shape', bg: bg, item: shape, shapeType: type, itemColor: sColor,
+                                    bgColorHex: colorMap[bg].hex, textColor: colorMap[bg].textHex, itemColorHex: colorMap[sColor].hex
+                                });
+                            }
+                        }
                     }
                 }
+            }
+        } else if (colorMode === 'bkw') {
+            for (let shape of shapes) {
+                for (let type of shapeTypes) {
+                    deck.push({
+                        mode: 'shape', bg: 'Black', item: shape, shapeType: type, itemColor: 'White',
+                        bgColorHex: '#000000', textColor: '#ffffff', itemColorHex: '#ffffff'
+                    });
+                }
+            }
+        } else if (colorMode === 'wkb') {
+            for (let shape of shapes) {
+                for (let type of shapeTypes) {
+                    deck.push({
+                        mode: 'shape', bg: 'White', item: shape, shapeType: type, itemColor: 'Black',
+                        bgColorHex: '#ffffff', textColor: '#000000', itemColorHex: '#000000'
+                    });
+                }
+            }
+        }
+    } else {
+        if (colorMode === 'rgb') {
+            for (let bg of colors) {
+                for (let letter of letters) {
+                    for (let lColor of colors) {
+                        if (bg !== lColor) {
+                            deck.push({
+                                mode: 'letter', bg: bg, item: letter, itemColor: lColor,
+                                bgColorHex: colorMap[bg].hex, textColor: colorMap[bg].textHex, itemColorHex: colorMap[lColor].hex
+                            });
+                        }
+                    }
+                }
+            }
+        } else if (colorMode === 'bkw') {
+            for (let letter of letters) {
+                deck.push({
+                    mode: 'letter', bg: 'Black', item: letter, itemColor: 'White',
+                    bgColorHex: '#000000', textColor: '#ffffff', itemColorHex: '#ffffff'
+                });
+            }
+        } else if (colorMode === 'wkb') {
+            for (let letter of letters) {
+                deck.push({
+                    mode: 'letter', bg: 'White', item: letter, itemColor: 'Black',
+                    bgColorHex: '#ffffff', textColor: '#000000', itemColorHex: '#000000'
+                });
             }
         }
     }
 
-    // Fisher-Yates shuffle
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [deck[i], deck[j]] = [deck[j], deck[i]];
     }
     return deck;
+}
+
+function updateSize(val) {
+    const scale = val / 100;
+    document.getElementById('trainer-container').style.setProperty('--scale-factor', scale);
+    document.getElementById('size-val').innerText = val;
 }
 
 function updateInterval(val) {
@@ -287,31 +787,19 @@ function updateAmplitude(val) {
 }
 
 function updateSpeed(val) {
-    document.getElementById('trainer-container').style.setProperty('--shake-speed', val);
-    document.getElementById('speed-val').innerText = parseFloat(val).toFixed(1);
+    document.getElementById('trainer-container').style.setProperty('--shake-speed', val * 0.1);
+    document.getElementById('speed-val').innerText = parseFloat(val).toFixed(2);
 }
 
-function getShapeSymbol(shape, shapeType) {
-    if (shapeType === 'Open') {
-        switch(shape) {
-            case 'Circle': return '○';
-            case 'Square': return '□';
-            case 'Triangle': return '△';
-            case 'Star': return '☆';
-            case 'Diamond': return '◇';
-            case 'Plus': return '┼';
-            default: return '○';
-        }
-    } else {
-        switch(shape) {
-            case 'Circle': return '●';
-            case 'Square': return '■';
-            case 'Triangle': return '▲';
-            case 'Star': return '★';
-            case 'Diamond': return '◆';
-            case 'Plus': return '✚';
-            default: return '●';
-        }
+function getShapePathData(shape) {
+    switch(shape) {
+        case 'Circle': return 'M 50, 10 A 40,40 0 1,1 49.9,10 Z';
+        case 'Square': return 'M 15, 15 H 85 V 85 H 15 Z';
+        case 'Triangle': return 'M 50, 10 L 90, 85 H 10 Z';
+        case 'Star': return 'M 50, 5 L 63, 35 H 95 L 69, 55 L 79, 85 L 50, 67 L 21, 85 L 31, 55 L 5, 35 H 37 Z';
+        case 'Diamond': return 'M 50, 5 L 95, 50 L 50, 95 L 5, 50 Z';
+        case 'Plus': return 'M 35, 10 H 65 V 35 H 90 V 65 H 65 V 90 H 35 V 65 H 10 V 35 H 35 Z';
+        default: return 'M 50, 10 A 40,40 0 1,1 49.9,10 Z';
     }
 }
 
@@ -322,36 +810,82 @@ function displayCurrentSlide() {
     }
     const current = activeCombinations[currentIndex];
     const container = document.getElementById('trainer-container');
-    const shapeIcon = document.getElementById('shape-icon');
+    const shapeSvg = document.getElementById('shape-svg');
+    const shapePath = document.getElementById('shape-path');
+    const letterDisplay = document.getElementById('letter-display');
     const comboText = document.getElementById('combo-text');
 
     container.style.backgroundColor = current.bgColorHex;
     container.style.color = current.textColor;
 
-    shapeIcon.innerText = getShapeSymbol(current.shape, current.shapeType);
-    shapeIcon.style.color = current.shapeColorHex;
-    comboText.innerText = `${current.bg} background, ${current.shapeType} ${current.shapeColor} ${current.shape}`;
+    if (current.mode === 'shape') {
+        shapeSvg.style.display = 'block';
+        letterDisplay.style.display = 'none';
+
+        shapePath.setAttribute('d', getShapePathData(current.item));
+
+        if (current.shapeType === 'Open') {
+            shapePath.setAttribute('fill', 'none');
+            shapePath.setAttribute('stroke', current.itemColorHex);
+            shapePath.setAttribute('stroke-width', '6');
+            shapePath.setAttribute('stroke-linejoin', 'round');
+        } else {
+            shapePath.setAttribute('fill', current.itemColorHex);
+            shapePath.setAttribute('stroke', 'none');
+        }
+
+        if (colorMode === 'rgb') {
+            comboText.innerText = `${current.bg} background, ${current.shapeType} ${current.itemColor} ${current.item}`;
+        } else {
+            comboText.innerText = `${current.shapeType} ${current.item}`;
+        }
+    } else {
+        shapeSvg.style.display = 'none';
+        letterDisplay.style.display = 'block';
+
+        letterDisplay.innerText = current.item;
+        letterDisplay.style.color = current.itemColorHex;
+
+        if (colorMode === 'rgb') {
+            comboText.innerText = `${current.bg} background, ${current.itemColor} Letter ${current.item}`;
+        } else {
+            comboText.innerText = `Letter ${current.item}`;
+        }
+    }
 
     clearTimeout(shakeTimeoutId);
-    shapeIcon.classList.remove('shake-anim');
+    shapeSvg.classList.remove('shake-anim');
+    letterDisplay.classList.remove('shake-anim');
 
     const effectiveShakeDuration = Math.min(shakeDurationSeconds, intervalSeconds);
     if (effectiveShakeDuration > 0) {
-        shapeIcon.classList.add('shake-anim');
+        shapeSvg.classList.add('shake-anim');
+        letterDisplay.classList.add('shake-anim');
         shakeTimeoutId = setTimeout(() => {
-            shapeIcon.classList.remove('shake-anim');
+            shapeSvg.classList.remove('shake-anim');
+            letterDisplay.classList.remove('shake-anim');
         }, effectiveShakeDuration * 1000);
     }
 }
 
-function startTraining() {
+async function startTraining() {
     if (isRunning && !isPaused) return;
+
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        loadVoices();
+        const dummyUtterance = new SpeechSynthesisUtterance(" ");
+        dummyUtterance.volume = 0.01;
+        if (cachedVoice) dummyUtterance.voice = cachedVoice;
+        window.speechSynthesis.speak(dummyUtterance);
+    }
     
     if (isPaused) {
         isPaused = false;
         document.getElementById('start-btn').style.display = 'none';
         document.getElementById('pause-btn').style.display = 'inline-block';
         document.getElementById('pause-btn').innerText = 'Pause';
+        await requestWakeLock();
         runStep();
         return;
     }
@@ -366,6 +900,7 @@ function startTraining() {
     document.getElementById('pause-btn').innerText = 'Pause';
     document.getElementById('stop-btn').disabled = false;
     
+    await requestWakeLock();
     runStep();
 }
 
@@ -375,14 +910,15 @@ function togglePause() {
         isPaused = true;
         clearTimeout(timeoutId);
         clearTimeout(shakeTimeoutId);
-        window.speechSynthesis.cancel();
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        releaseWakeLock();
         pauseBtn.innerText = 'Resume';
         document.getElementById('status-text').innerText = 'Paused';
         showUI();
     } else {
         isPaused = false;
         pauseBtn.innerText = 'Pause';
-        runStep();
+        startTraining();
     }
 }
 
@@ -391,18 +927,25 @@ function stopTraining() {
     isPaused = false;
     clearTimeout(timeoutId);
     clearTimeout(shakeTimeoutId);
-    window.speechSynthesis.cancel();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    releaseWakeLock();
     
-    const shapeIcon = document.getElementById('shape-icon');
-    shapeIcon.classList.remove('shake-anim');
+    const shapeSvg = document.getElementById('shape-svg');
+    const shapePath = document.getElementById('shape-path');
+    const letterDisplay = document.getElementById('letter-display');
+    shapeSvg.classList.remove('shake-anim');
+    letterDisplay.classList.remove('shake-anim');
 
     document.getElementById('start-btn').style.display = 'inline-block';
     document.getElementById('pause-btn').style.display = 'none';
     document.getElementById('stop-btn').disabled = true;
     
     document.getElementById('status-text').innerText = 'Ready to Start';
-    shapeIcon.innerText = '●';
-    shapeIcon.style.color = '#fff';
+    shapeSvg.style.display = 'block';
+    letterDisplay.style.display = 'none';
+    shapePath.setAttribute('d', getShapePathData('Circle'));
+    shapePath.setAttribute('fill', '#ffffff');
+    shapePath.setAttribute('stroke', 'none');
     document.getElementById('combo-text').innerText = 'Press Start Training';
     document.getElementById('trainer-container').style.backgroundColor = '#000';
     document.getElementById('trainer-container').style.color = '#fff';
@@ -418,8 +961,9 @@ function nextSlide() {
     
     clearTimeout(timeoutId);
     clearTimeout(shakeTimeoutId);
-    window.speechSynthesis.cancel();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     isPaused = true;
+    releaseWakeLock();
     
     const pauseBtn = document.getElementById('pause-btn');
     document.getElementById('start-btn').style.display = 'none';
@@ -441,8 +985,9 @@ function prevSlide() {
     
     clearTimeout(timeoutId);
     clearTimeout(shakeTimeoutId);
-    window.speechSynthesis.cancel();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     isPaused = true;
+    releaseWakeLock();
     
     const pauseBtn = document.getElementById('pause-btn');
     document.getElementById('start-btn').style.display = 'none';
@@ -458,24 +1003,18 @@ function prevSlide() {
 function toggleFullscreen() {
     if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(err => {
-            alert(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
+            alert(`Error attempting fullscreen: ${err.message}`);
         });
-        document.getElementById('fullscreen-btn').innerText = 'Exit Fullscreen';
     } else {
         if (document.exitFullscreen) {
             document.exitFullscreen();
         }
-        document.getElementById('fullscreen-btn').innerText = 'Fullscreen';
     }
 }
 
 document.addEventListener('fullscreenchange', () => {
     const btn = document.getElementById('fullscreen-btn');
-    if (!document.fullscreenElement) {
-        btn.innerText = 'Fullscreen';
-    } else {
-        btn.innerText = 'Exit Fullscreen';
-    }
+    btn.innerText = !document.fullscreenElement ? 'Fullscreen' : 'Exit Full';
 });
 
 function runStep() {
@@ -486,7 +1025,6 @@ function runStep() {
     const isMuted = document.getElementById('mute-check').checked;
 
     displayCurrentSlide();
-
     statusText.innerText = `Visualizing... (${intervalSeconds}s)`;
 
     if (isRunning && !isPaused) {
@@ -496,21 +1034,42 @@ function runStep() {
     timeoutId = setTimeout(() => {
         if (!isRunning || isPaused) return;
 
-        const description = `${current.bg} background, ${current.shapeType} ${current.shapeColor} ${current.shape}`;
+        let description = '';
+        if (current.mode === 'shape') {
+            description = colorMode === 'rgb' ? `${current.bg} background, ${current.shapeType} ${current.itemColor} ${current.item}` : `${current.shapeType} ${current.item}`;
+        } else {
+            description = colorMode === 'rgb' ? `${current.bg} background, ${current.itemColor} Letter ${current.item}` : `Letter ${current.item}`;
+        }
 
         if (isMuted) {
             currentIndex = (currentIndex + 1) % activeCombinations.length;
             timeoutId = setTimeout(runStep, 1500);
         } else {
             statusText.innerText = 'Announcing...';
-            const utterance = new SpeechSynthesisUtterance(description);
-            utterance.rate = 0.9;
-            utterance.onend = () => {
-                if (!isRunning || isPaused) return;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(description);
+                utterance.rate = 0.9;
+                if (cachedVoice) utterance.voice = cachedVoice;
+                
+                let spokenDone = false;
+                const advanceSlide = () => {
+                    if (spokenDone) return;
+                    spokenDone = true;
+                    if (!isRunning || isPaused) return;
+                    currentIndex = (currentIndex + 1) % activeCombinations.length;
+                    timeoutId = setTimeout(runStep, 1500);
+                };
+
+                utterance.onend = advanceSlide;
+                utterance.onerror = advanceSlide;
+
+                window.speechSynthesis.speak(utterance);
+                setTimeout(advanceSlide, 8000);
+            } else {
                 currentIndex = (currentIndex + 1) % activeCombinations.length;
                 timeoutId = setTimeout(runStep, 1500);
-            };
-            window.speechSynthesis.speak(utterance);
+            }
         }
 
     }, intervalSeconds * 1000);
@@ -525,18 +1084,137 @@ function showUI() {
     document.querySelectorAll('.fade-ui').forEach(el => el.classList.remove('hidden-ui'));
 }
 
-document.addEventListener('mousemove', () => {
-    if (!isRunning || isPaused) return;
-    showUI();
-    
-    clearTimeout(mouseIdleTimer);
-    mouseIdleTimer = setTimeout(() => {
-        if (isRunning && !isPaused) {
-            hideUI();
-        }
-    }, 2000);
+['mousemove', 'touchstart'].forEach(eventType => {
+    document.addEventListener(eventType, () => {
+        if (!isRunning || isPaused) return;
+        showUI();
+        
+        clearTimeout(mouseIdleTimer);
+        mouseIdleTimer = setTimeout(() => {
+            if (isRunning && !isPaused) {
+                hideUI();
+            }
+        }, 2500);
+    });
 });
+
+activeCombinations = generateShuffledDeck();
+displayCurrentSlide();
+
+// ===== v6 helpers =====
+function toggleAdvanced() {
+    const panel = document.getElementById('advanced-panel');
+    const btn = document.getElementById('advanced-toggle');
+    panel.classList.toggle('open');
+    btn.innerText = panel.classList.contains('open') ? 'Practice settings â´' : 'Practice settings â¾';
+}
+
+function openOnboarding() {
+    document.getElementById('onboarding').classList.add('show');
+}
+function closeOnboarding() {
+    document.getElementById('onboarding').classList.remove('show');
+}
+
+function setPresetActive(name) {
+    document.querySelectorAll('.preset').forEach(x => x.classList.remove('active'));
+    const map = {
+        beginner: 'preset-beginner',
+        color: 'preset-color',
+        shape: 'preset-shape',
+        letter: 'preset-letter'
+    };
+    const el = document.getElementById(map[name]);
+    if (el) el.classList.add('active');
+}
+
+function syncSlider(id, value) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.value = value;
+        el.dispatchEvent(new Event('input'));
+    }
+}
+
+function applyPreset(name) {
+    setPresetActive(name);
+    const hint = document.getElementById('training-hint');
+
+    if (name === 'beginner') {
+        setElementType('shapes');
+        setColorMode('bkw');
+        updateSize(180);
+        updateInterval(7);
+        updateAmplitude(0);
+        updateSpeed(0.2);
+        document.getElementById('v6-size-val').innerText = '180';
+        document.getElementById('v6-int-val').innerText = '7';
+        document.getElementById('v6-amp-val').innerText = '0';
+        document.getElementById('v6-speed-val').innerText = '0.20';
+        hint.innerText = 'Beginner: notice light, dark, edges and location';
+    } else if (name === 'color') {
+        setElementType('shapes');
+        setColorMode('rgb');
+        updateSize(170);
+        updateInterval(6);
+        updateAmplitude(0);
+        hint.innerText = 'Color: notice background first, then the target';
+    } else if (name === 'shape') {
+        setElementType('shapes');
+        setColorMode('bkw');
+        updateSize(160);
+        updateInterval(5);
+        updateAmplitude(35);
+        hint.innerText = 'Shapes: notice outline, orientation and filled/open';
+    } else if (name === 'letter') {
+        setElementType('letters');
+        setColorMode('bkw');
+        updateSize(190);
+        updateInterval(6);
+        updateAmplitude(10);
+        hint.innerText = 'Letters: soften your gaze and let the character form';
+    }
+    activeCombinations = generateShuffledDeck();
+    currentIndex = 0;
+    displayCurrentSlide();
+}
+
+function toggleMuteV6() {
+    const cb = document.getElementById('mute-check');
+    cb.checked = !cb.checked;
+    const hint = document.getElementById('training-hint');
+    hint.innerText = cb.checked ? 'Audio muted' : 'Audio on';
+}
+
+const originalHideUI = hideUI;
+hideUI = function() {
+    if (isPaused) return;
+    document.querySelectorAll('.fade-ui').forEach(el => el.classList.add('hidden-ui'));
+};
+
+const originalShowUI = showUI;
+showUI = function() {
+    document.querySelectorAll('.fade-ui').forEach(el => el.classList.remove('hidden-ui'));
+};
+
+window.addEventListener('load', () => {
+    // First visit gets a very simple entry point.
+    setTimeout(() => openOnboarding(), 250);
+});
+
 </script>
+
+
+    <div id="onboarding">
+        <div class="onboarding-card">
+            <h2>Choose your practice</h2>
+            <p>Start simple. Notice first â identify second. You can change settings at any time.</p>
+            <button class="start-choice choice-beginner" onclick="applyPreset('beginner'); closeOnboarding();">Beginner â Light & contrast</button>
+            <button class="start-choice choice-colors" onclick="applyPreset('color'); closeOnboarding();">Color â Background & target color</button>
+            <button class="start-choice choice-details" onclick="applyPreset('letter'); closeOnboarding();">Details â Shapes & letters</button>
+            <p style="font-size:11px;margin-top:14px;">Tip: use the ? button anytime to return here.</p>
+        </div>
+    </div>
 
 </body>
 </html>
